@@ -10,6 +10,12 @@ connectDB();
 const app = express();
 app.use(cors());
 app.use(express.json());
+// Allow popups used by Firebase auth to close correctly when COOP is enforced
+app.use((req, res, next) => {
+  // Allow popups to call window.close() across origins
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  next();
+});
 app.get('/', (req, res) => {
     res.send('Backend is running!');
   });

@@ -4,7 +4,15 @@ const getTasks = async (req, res) => {
   try {
     const db = admin.firestore();
     const snapshot = await db.collection('tasks').get();
-    const tasks = snapshot.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+    const tasks = snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        _id: doc.id,
+        ...data,
+        createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : null,
+        updatedAt: data.updatedAt && data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : null,
+      };
+    });
     res.json(tasks);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -15,11 +23,16 @@ const createTask = async (req, res) => {
   const { title, description, status } = req.body;
   try {
     const db = admin.firestore();
-    const data = { title, description, status: status || 'To Do', createdAt: admin.firestore.FieldValue.serverTimestamp() };
-    if (req.user && req.user.uid) data.userId = req.user.uid;
-    const docRef = await db.collection('tasks').add(data);
+    const payload = { title, description, status: status || 'To Do', createdAt: admin.firestore.FieldValue.serverTimestamp() };
+    if (req.user && req.user.uid) payload.userId = req.user.uid;
+    const docRef = await db.collection('tasks').add(payload);
     const doc = await docRef.get();
-    res.status(201).json({ _id: doc.id, ...doc.data() });
+    const data = doc.data();
+    res.status(201).json({
+      _id: doc.id,
+      ...data,
+      createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : null,
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -42,7 +55,13 @@ const updateTask = async (req, res) => {
     updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
     await docRef.update(updates);
     const updated = await docRef.get();
-    res.json({ _id: updated.id, ...updated.data() });
+    const updatedData = updated.data();
+    res.json({
+      _id: updated.id,
+      ...updatedData,
+      createdAt: updatedData.createdAt && updatedData.createdAt.toDate ? updatedData.createdAt.toDate().toISOString() : null,
+      updatedAt: updatedData.updatedAt && updatedData.updatedAt.toDate ? updatedData.updatedAt.toDate().toISOString() : null,
+    });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

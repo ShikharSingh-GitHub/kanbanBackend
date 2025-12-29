@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const taskRoutes = require('./routes/taskRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.get('/', (req, res) => {
   });
   
 app.use('/api/tasks', taskRoutes);
+app.use('/api/users', userRoutes);
 
 // Basic error handler that ensures CORS headers are present even on errors
 app.use((err, req, res, next) => {

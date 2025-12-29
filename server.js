@@ -22,6 +22,12 @@ app.get('/', (req, res) => {
   
 app.use('/api/tasks', taskRoutes);
 
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, console.log(`Server running on port ${PORT}`));
+// If this file is run directly, start the server. When required by a serverless
+// platform (like Vercel), export the app instead so the platform can handle
+// the request lifecycle.
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+} else {
+  module.exports = app;
+}

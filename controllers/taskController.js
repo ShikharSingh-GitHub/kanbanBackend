@@ -3,7 +3,14 @@ const admin = require('../config/firebaseAdmin');
 const getTasks = async (req, res) => {
   try {
     const db = admin.firestore();
-    const snapshot = await db.collection('tasks').get();
+    let query = db.collection('tasks');
+    
+    // Filter tasks by user if authenticated
+    if (req.user && req.user.uid) {
+      query = query.where('userId', '==', req.user.uid);
+    }
+    
+    const snapshot = await query.get();
     const tasks = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -15,15 +22,27 @@ const getTasks = async (req, res) => {
     });
     res.json(tasks);
   } catch (error) {
+    console.error('getTasks error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
 const createTask = async (req, res) => {
   const { title, description, status } = req.body;
+  
+  // Validate required fields
+  if (!title || title.trim().length === 0) {
+    return res.status(400).json({ message: 'Task title is required' });
+  }
+  
   try {
     const db = admin.firestore();
-    const payload = { title, description, status: status || 'To Do', createdAt: admin.firestore.FieldValue.serverTimestamp() };
+    const payload = { 
+      title: title.trim(), 
+      description: description ? description.trim() : '', 
+      status: status || 'To Do', 
+      createdAt: admin.firestore.FieldValue.serverTimestamp() 
+    };
     if (req.user && req.user.uid) payload.userId = req.user.uid;
     const docRef = await db.collection('tasks').add(payload);
     const doc = await docRef.get();
@@ -34,6 +53,7 @@ const createTask = async (req, res) => {
       createdAt: data.createdAt && data.createdAt.toDate ? data.createdAt.toDate().toISOString() : null,
     });
   } catch (error) {
+    console.error('createTask error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -48,9 +68,16 @@ const updateTask = async (req, res) => {
     if (!doc.exists) {
       return res.status(404).json({ message: 'Task not found' });
     }
+    
+    // Verify ownership
+    const taskData = doc.data();
+    if (req.user && req.user.uid && taskData.userId && taskData.userId !== req.user.uid) {
+      return res.status(403).json({ message: 'Forbidden: you can only update your own tasks' });
+    }
+    
     const updates = {};
-    if (title !== undefined) updates.title = title;
-    if (description !== undefined) updates.description = description;
+    if (title !== undefined) updates.title = title.trim();
+    if (description !== undefined) updates.description = description.trim();
     if (status !== undefined) updates.status = status;
     updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
     await docRef.update(updates);
@@ -63,6 +90,7 @@ const updateTask = async (req, res) => {
       updatedAt: updatedData.updatedAt && updatedData.updatedAt.toDate ? updatedData.updatedAt.toDate().toISOString() : null,
     });
   } catch (error) {
+    console.error('updateTask error:', error);
     res.status(400).json({ message: error.message });
   }
 };
@@ -76,9 +104,17 @@ const deleteTask = async (req, res) => {
     if (!doc.exists) {
       return res.status(404).json({ message: 'Task not found' });
     }
+    
+    // Verify ownership
+    const taskData = doc.data();
+    if (req.user && req.user.uid && taskData.userId && taskData.userId !== req.user.uid) {
+      return res.status(403).json({ message: 'Forbidden: you can only delete your own tasks' });
+    }
+    
     await docRef.delete();
     res.json({ message: 'Task removed' });
   } catch (error) {
+    console.error('deleteTask error:', error);
     res.status(500).json({ message: error.message });
   }
 };
